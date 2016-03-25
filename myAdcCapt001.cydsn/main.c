@@ -13,13 +13,15 @@
 #include <stdio.h>
 
 uint16 gmuwStrmIn[4096] __attribute__((section(".data")));
-uint8 gucFlagDmaFinished=0;
+volatile uint8 gucFlagDmaFinished=0; //use volatile for safe when it optimized 
 
 void MyInit(void);
 void DMA_Config(void);
 void MyPrintf(uint16 );
 
 #define TOTAL_SAMPLE_NUMBER 2047
+#define DMA_1__DRQ_NUMBER_4_MAIN (uint8)0u //same as cyfitter.h
+#define DMA_EN_PRESERVE_TD 1 //1 is to retain TD config
 
 
 CY_ISR(IrqDmaDone)
@@ -46,11 +48,13 @@ int main()
     isr_1_Enable();
     CyDelay(250);
     
-    DMA_Config();
+    DMA_Config();//configure DMA as initialization.
+    CyDmaChEnable(DMA_1__DRQ_NUMBER_4_MAIN, DMA_EN_PRESERVE_TD);//Start DMA
     while(!gucFlagDmaFinished)
     {
     }
     gucFlagDmaFinished=0;
+    CyDmaTdFree(DMA_1__DRQ_NUMBER_4_MAIN);// to free TD resource for next config DMA
     isr_1_ClearPending();
     ADC_SAR_1_Sleep();
     Control_Reg_1_Write(0);
@@ -84,12 +88,11 @@ void MyInit()
 }
 
 #define DMA_1_BYTES_PER_BURST (2u) // 2 is for 16bit ADC
-//#define DMA_1_REQUEST_PER_BURST (0u) // 0 is automatically continue burst
-#define DMA_1_REQUEST_PER_BURST (1u) // 0 is automatically continue burst
+#define DMA_1_REQUEST_PER_BURST (1u) // 1 for each pulse
 #define DMA_1_SRC_BASE (CYDEV_PERIPH_BASE)
 #define DMA_1_DST_BASE (CYDEV_SRAM_BASE)
 #define DMA_1_TRANSFER_COUNT 4095 //full byte
-#define DMA_EN_PRESERVE_TD 1 //1 is to retain TD config
+//#define DMA_EN_PRESERVE_TD 1 //1 is to retain TD config // move to above of this file
 
 void DMA_Config()
 {
@@ -124,7 +127,7 @@ void DMA_Config()
 
     /* Enable the DMA channel */
    
-    CyDmaChEnable(DMA_1_Chan, DMA_EN_PRESERVE_TD);
+    //CyDmaChEnable(DMA_1_Chan, DMA_EN_PRESERVE_TD);
 }
 
 void MyPrintf(uint16 uiSample)
